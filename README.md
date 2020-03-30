@@ -4,7 +4,7 @@ The purpose of this project will be to build understanding of threading and proc
 
 ## Installation
 
-Use the package manager [pip](https://pip.pypa.io/en/stable/) to install foobar.
+Will add later.
 
 ```bash
 Just download it :)
