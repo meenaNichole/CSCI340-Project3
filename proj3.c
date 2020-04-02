@@ -7,10 +7,12 @@
 #include <ctype.h>
 #include <unistd.h>
 
-//Global variable for word count and counter, just to avoid carrying around an extra variables.
-int totalWordCount = 0;
-int i;
-#define MAXSIZE 1024
+#define MAXSIZE 1024              
+
+
+
+int wordsNum;
+int count;
 
 
 //Christian, you can change any variable names if you don't like them or feel like they don't make sense.
@@ -18,193 +20,158 @@ int i;
 //I wanted to name this struct 'entry' but I figured we should go about this like a linked list of sorts...if that makes sense
 /*
 struct node {
-    char line[1024];
-    struct node *next;
-	struct node *prev;
+char line[1024];
+struct node *next;
+struct node *prev;
 };
 */
 //I don't think we actually need this, but I don't know how else to do the pop function.
+//this was redefined below to make life easier
+/*
+struct producerData {
+Queue* quOut;
+FILE* textFile;
+};
+
+*/
+//queue structure
 typedef struct {
-	int fill;
-	int use;
-	int q_len;
-	char **buffer;
-	sem_t empty;
-	sem_t full;
+	int             use;        
+	int             fill;      
+	int             q_len;       
+	char            **buffer1; 
 	pthread_mutex_t lock;
+	sem_t           full;
+	sem_t           empty;
 } Queue;
 
-/*
-//this was redefined below to make life easier
-struct threadData {
-	char* currLine;
-	sem_t updating;
-};
-
-struct producerData {
-	Queue* quOut;
-	FILE* textFile;
-};
-*/
-
-typedef struct{
+//thread information
+typedef struct {
 	int task;
 	Queue* q;
-}threadData;
+} threadData;
 
-//Based off of producer-consumer notes
-char* pop(Queue *q){
+//push to queue
+void push(Queue *queues, char *line){
+	//printf("Start push");
+	assert(sem_wait(&queues->empty) == 0);
+	assert(pthread_mutex_lock(&queues->lock) == 0);
 
-	assert(sem_wait(&q->full) == 0);
-	assert(pthread_mutex_lock(&q->lock) == 0);
+	queues->buffer1[queues->fill] = (char*) line;
+	queues->fill = (queues->fill + 1) % (queues->q_len + 1);
 
-	char *line = q->buffer[q->use];
-	//strncpy(line, queue->buffer[queue->use], 1024);
-	//queue->buffer[queue->use] = NULL;
-	q->use = (q->use + 1) % (q->q_len + 1);
-	int lineNum = q->use;
-
-	
-	printf("Line %d\n", lineNum);
-
-	
-	
-	assert(pthread_mutex_unlock(&q->lock) == 0);
-	assert(sem_post(&q->empty) == 0);
-	return line;
+	assert(pthread_mutex_unlock(&queues->lock) == 0);
+	assert(sem_post(&queues->full) == 0);
+	//printf("End push");
 }
 
-void push(Queue *q, char *line){
-	assert(sem_wait(&q->empty) == 0);
-//THE ASSERTION BELOW IS FAILING
-	printf("Inside the push function");
-	assert(pthread_mutex_lock(&q->lock) == 0);
-	
-	//strncpy(queue->buffer[queue->fill], inLine, 1024);
-	q->buffer[q->fill] = (char*) line;
-	q->fill = (q->fill +1) % (q->q_len + 1);
+//pop from queue
+char* pop(Queue *queues) {
+	//printf("Start pop");
+	assert(sem_wait(&queues->full) == 0);
+	assert(pthread_mutex_lock(&queues->lock) == 0);
 
-	assert(pthread_mutex_lock(&q->lock) == 0);
-	assert(sem_post(&q->full) == 0);
+	char *t = queues->buffer1[queues->use];
+	queues->use = (queues->use + 1) % (queues->q_len + 1);
+	int currentLine = queues->use;
+	//printf("Current line#%d\n", currentLine);
+
+	assert(pthread_mutex_unlock(&queues->lock) == 0);
+	assert(sem_post(&queues->empty) == 0);
+	//printf("End pop");
+	return t;
 }
+
+
 
 
 //Prints out the number of words in a line, might need to change this later to not include white spaces, haven't decided yet
-//Honestly, this probably will definitely need to be changed. probably maybe idk
+//Honestly, this probably will definitely need to be changed. probably maybe idk (I WAS RIGHT :D)
 /*
 int wordCount(char* line){
-	int numOfWords = 0;
-	int i = 0;
-	char* currLine = line;
-	for (i = 0; currLine[i]; i++){
-		if (currLine[i] == 32){
-			numOfWords++;		
-		}
+int numOfWords = 0;
+int i = 0;
+char* currLine = line;
+for (i = 0; currLine[i]; i++){
+	if (currLine[i] == 32){
+		numOfWords++;		
 	}
+}
 
-	sem_wait(&update);
-	totalWordCount += numOfWords;
-	sem_post(&update);
-	
-	return 0;
+sem_wait(&update);
+totalWordCount += numOfWords;
+sem_post(&update);
+
+return 0;
 }
 
 
 
 void producerFn(void* args) {
-	printf("Starting Producer Fn");
-	struct producerData* prodData = (struct producerData*) args;
-	Queue* lines = prodData->quOut;
-	FILE* textFile = prodData->textFile;
-	char line[1024];
-	while (fgets(line, 1024, textFile)) {
-		append(lines, line);
-		printf("%s", line);
-	}
-	printf("Ending Producer Fn");
+printf("Starting Producer Fn");
+struct producerData* prodData = (struct producerData*) args;
+Queue* lines = prodData->quOut;
+FILE* textFile = prodData->textFile;
+char line[1024];
+while (fgets(line, 1024, textFile)) {
+	append(lines, line);
+	printf("%s", line);
 }
-*/
+printf("Ending Producer Fn");
+}
 
+*/
 //this is the thread function, which basically is just the producerFn and wordCount functions above this updated and combined.
-void *wordCount(void *attr){
-	printf("Starting Thread Function");
-	threadData *info = (threadData *) attr;
+
+void *countWords(void *args) {
+
+
+	threadData *info = (threadData *) args;
 	int taskNum = info->task;
 	int size = info->q->q_len;
 
-	while(i < size - 1){
-		i++;
-		char *text = pop(info->q);
-		printf("Line: %s\n", text);
-	
-		int wordsInLine = 0;	
-		
-		for (int x = 0; text[x] != '\0'; x++){
-			//figured we'd have to do this at some point...
-			if (text[x] == ' ' || text[x + 1] == '\0'){
-				wordsInLine++;
+
+	while(count < size - 1){
+		count++;
+		char *item = pop(info->q);
+		printf("Current line: %s\n", item);
+
+
+		int line = 0;
+
+
+
+		for(int i = 0; item[i] != '\0'; i++){
+
+
+			if(item[i] == ' ' || item[i + 1] == '\0')
+			{
+				line++;
 			}
 		}
-		printf("Task num %d, %d words", taskNum, wordsInLine);
-		totalWordCount = totalWordCount + wordsInLine;
+		wordsNum = wordsNum + line;
+		printf("Task %d: %d words\n", taskNum, line);
+		printf("--------------------------------------------------------------------------------\n");
 	}
-	
-	printf("Ending Thread Function");
-	//need	
-	pthread_exit(NULL);
-}
-/* //need?
-void list_init(Queue* quInit, int numTasks) {
-	quInit->q_len = numTasks;
-	quInit->fill = 0;
-	quInit->use = 0;
-	char* buffer1[numTasks];
-	quInit->buffer = buffer1;
-	for(int i = 0; i < numTasks; i++) {
-		char* arrayToInit = quInit->buffer[i];
-		arrayToInit[1024];
-	}
-	sem_init(&quInit->empty, 0, quInit->q_len);
-	sem_init(&quInit->full, 0, 0);
-	pthread_mutex_init(&quInit->lock, NULL);
-}
-*/
 
-int main(int argc, char *argv[]){
-	
+
+
+}
+
+
+int main(int argc, char **arg) {
+
 	//we need to make sure the user enters the current number of variables
 	//num of task, text file
-	if (argc != 2){
-		printf("Incorrect number of parameters\n");
+	if (argc != 2) {
+		printf("--------------------------------------------------------------------------------\n");
+		printf("Uh oh! Missing parameter\n");
+		printf("--------------------------------------------------------------------------------\n");	
 	}
-
-	//variables
-
-	//int maxLength = 1024; //this was defined above as MAXSIZE
-	
-	int numLines = 0;
-	int numWords = 0;
-	//char* line[maxLength];
-	char * line = calloc(1,1), buff[MAXSIZE];
-	
-
-	//reads a line and stores it
-	while (fgets(buff, MAXSIZE, stdin)){
-		line = realloc(line, strlen(line) + 1 + strlen(buff));
-		numLines++;
-		if (line == 0){
-			printf("Does not exist");
-			exit(1);
-		}
-
-		strcat(line, buff);
-	}
-	
-	strcat(line, "\0");
 
 
 	/* //just changed all of this, sorry
-	
+
 
 	FILE* textFile;
 	Queue lines;
@@ -212,71 +179,104 @@ int main(int argc, char *argv[]){
 	list_init(&lines, tasks);
 
 	assert(sem_init(&update, 0, 1) == 0);
-	*/
-	
+
+
 	char * anotherBuff[numLines];
 	Queue lines;
 
 	assert(sem_init(&lines.empty, 0, numLines) == 0);
 	assert(sem_init(&lines.full, 0, 0) == 0);
-	/*
-	textFile = fopen("./midsummer.txt", "r");
-	struct producerData prodData = {&lines, textFile};
-	assert(sem_init(&update, 0, 1) == 0);
-	assert(pthread_create(&producerThread, NULL, (void*)producerFn, (void*)&prodData) == 0);
-	printf("Producer Created\n");
-	assert(pthread_join(&producerThread, NULL) == 0);
-	//TEST LINE
-	printf("%d tasks total\n", tasks);
-	//Scans until end of file (ideally) fgets runs until it encounters EOF so spaces should be fine
-*/
+	*/
 
-	char *linesNext = malloc(MAXSIZE);
-	linesNext = strtok(line, "\n");
-	linesNext = strcat(linesNext, "\0");
-	
-	push(&lines, linesNext);
+	wordsNum = 0;
+	int lineCount = 0;
+	char *line = calloc(1,1), buffer1[MAXSIZE];
 
-	
-	for(int i = 0; i < numLines - 2; i++) {
-		//assert(pthread_join(listOfThreads[i], NULL) == 0);
-		linesNext = strtok(NULL, "\n");
-		linesNext = strcat(linesNext, "\0");
-		push(&lines, linesNext);
-	}
+	while (fgets(buffer1, MAXSIZE, stdin)) {
+		line = realloc( line, strlen(line)+1+strlen(buffer1));
 
-	int tasks = atoi(argv[1]);	
-	pthread_t producerThread[tasks];
-	//pthread_t listOfThreads[sizeof(pthread_t) * tasks];
-	
-	//kind of similar to the commented out line
-	threadData listOfThreads[tasks];
-	
-	int nums[tasks];
-	for (int i = 0; i <tasks; i++){
-		
-		nums[i] = i;	
-	}
 
-	for (int i = 0; i < tasks; i++){
-			
-		listOfThreads[i].task = nums[i];
-		listOfThreads[i].q = &lines;			
-	}
-	
+		lineCount++;
 
-	for (int i = 0; i < tasks; i++){
-		assert(pthread_create(&producerThread[i], NULL, &wordCount, (void *) &listOfThreads[i]) == 0);
+		//if the line doesn't exist basically, then something is wrong and quit
+		if (line == 0) {
+			printf("--------------------------------------------------------------------------------\n");
+			printf("Uh oh! Something went wrong...figure it out.\n");
+			printf("--------------------------------------------------------------------------------\n");
+
+
+			exit(1);
+		}
+		strcat(line, buffer1);
+
 
 	}
 
-	for (int i = 0; i < tasks; i++){
-		pthread_join(producerThread[i], NULL);
-	}
+
+
+	strcat(line, "\0");
+
+
 	
-	printf("Number of words: %d\n", totalWordCount);
+	char *Buffer1[lineCount];
+    Queue q = { 0, 0, lineCount, Buffer1, PTHREAD_MUTEX_INITIALIZER};
+    assert(sem_init(&q.empty, 0, lineCount) == 0);
+    assert(sem_init(&q.full, 0, 0) == 0);
+
+
+
+
+	
+	char *nextLine = malloc(MAXSIZE);
+	nextLine = strtok(line, "\n");
+	nextLine = strcat(nextLine, "\0");
+	push(&q, nextLine);
+
+
+	for (int i = 0; i < lineCount - 2; i++) {
+		nextLine = strtok(NULL, "\n");
+		nextLine = strcat(nextLine, "\0");
+		push(&q, nextLine);
+	}
+
+
+	int nextTask = atoi(arg[1]);
+	pthread_t threadID[nextTask];
+	threadData threadX[nextTask];
+
+
+	int nums[nextTask];
+
+	//i don't really like all of these for loops but it won't flipping work when put together.
+	//Christian if you want to look at this, please do
+	for (int i = 0; i < nextTask; i++) {
+		nums[i] = i;
+	}
+
+
+	for (int i = 0; i < nextTask; i++) {
+		threadX[i].task = nums[i];
+		threadX[i].q = &q;
+	}
+
+
+	for (int i = 0; i < nextTask; i++){
+		assert(pthread_create(&threadID[i], NULL, &countWords, (void *) &threadX[i]) == 0);
+	}
+
+
+	for (int i = 0; i < nextTask; i++){
+		pthread_join(threadID[i], NULL);
+	}
+
+	printf("--------------------------------------------------------------------------------\n");
+	printf("Final word count is %d\n", wordsNum);
+	printf("--------------------------------------------------------------------------------\n");
 
 	free(line);
+
+
 	return 0;
 }
+
 
