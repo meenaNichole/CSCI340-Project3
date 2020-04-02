@@ -14,21 +14,22 @@ sem_t update;
 //Christian, you can change any variable names if you don't like them or feel like they don't make sense.
 
 //I wanted to name this struct 'entry' but I figured we should go about this like a linked list of sorts...if that makes sense
+/*
 struct node {
-    char *line;
+    char line[1024];
     struct node *next;
 	struct node *prev;
 };
-
+*/
 //I don't think we actually need this, but I don't know how else to do the pop function.
 typedef struct {
+	int fill;
+	int use;
 	int q_len;
-	char* buffer;
+	char** buffer;
 	sem_t empty;
 	sem_t full;
 	pthread_mutex_t lock;
-	struct node* head;
-	struct node* tail;
 }Queue;
 
 struct threadData {
@@ -51,35 +52,27 @@ pthread_mutex_t lock;
 
 //this should be tested, I might've forgotten a step or miscalculated something...
 char* pop(Queue* queue){
-	struct node *currLine;
 
+	char line[1024];
 	assert(sem_wait(&queue->full) == 0);
 	assert(pthread_mutex_lock(&queue->lock) == 0);
 
-	currLine = queue->head->next;
-	queue->head->next = currLine->next;
-	currLine->next->prev = queue->head;
-	currLine->next = currLine->prev = NULL;
-	
+	strncpy(line, queue->buffer[queue->use], 1024);
+	queue->buffer[queue->use] = NULL;
+	queue->use = (queue->use + 1) % queue->q_len;
 	assert(pthread_mutex_unlock(&queue->lock) == 0);	
 	assert(sem_post(&queue->empty) == 0);
 
-	return currLine->line;
+	return line;
 
 }
 
 void append(Queue* queue, char* inLine){
-	printf("Starting Append");
-	struct node *newLine = malloc(sizeof(struct node));
-	newLine->line[1024];
-	printf("%lu", strlen(inLine));
-	//strncpy(inLine, newLine->line, 1024);
+	
 	assert(sem_wait(&queue->empty) == 0);
 	assert(pthread_mutex_lock(&queue->lock) == 0);
-	newLine->prev = queue->tail->prev;
-	newLine->next = queue->tail;
-	queue->tail->prev->next = newLine;
-	queue->tail->prev = newLine;
+	strncpy(queue->buffer[queue->fill], inLine, 1024);
+	queue->fill = (queue->fill + 1) % queue->q_len;
 	assert(pthread_mutex_unlock(&queue->lock) == 0);
 	assert(sem_post(&queue->full) == 0);
 	printf("Ending Append");
@@ -118,13 +111,19 @@ int wordCount(char* line){
 	return 0;
 }
 
-void list_init(Queue* quInit) {
-	quInit->q_len = 5;
-	quInit->buffer[1024];
+void list_init(Queue* quInit, int numTasks) {
+	quInit->q_len = numTasks;
+	quInit->fill = 0;
+	quInit->use = 0;
+	char* buffer1[numTasks];
+	quInit->buffer = buffer1;
+	for(int i = 0; i < numTasks; i++) {
+		char* arrayToInit = quInit->buffer[i];
+		arrayToInit[1024];
+	}
 	sem_init(&quInit->empty, 0, quInit->q_len);
 	sem_init(&quInit->full, 0, 0);
 	pthread_mutex_init(&quInit->lock, NULL);
-	quInit->head = quInit->tail = NULL;
 }
 
 
@@ -144,7 +143,7 @@ int main(int argc, char *argv[]){
 	FILE* textFile;
 	Queue lines;
 
-	list_init(&lines);
+	list_init(&lines, tasks);
 
 	assert(sem_init(&update, 0, 1) == 0);
 
@@ -152,8 +151,8 @@ int main(int argc, char *argv[]){
 	struct producerData prodData = {&lines, textFile};
 	assert(sem_init(&update, 0, 1) == 0);
 	assert(pthread_create(&producerThread, NULL, (void*)producerFn, (void*)&prodData) == 0);
-
-	pthread_join(producerThread, NULL);
+	printf("Producer Created\n");
+	assert(pthread_join(&producerThread, NULL) == 0);
 	//TEST LINE
 	printf("%d tasks total\n", tasks);
 	//Scans until end of file (ideally) fgets runs until it encounters EOF so spaces should be fine
