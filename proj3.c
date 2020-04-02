@@ -47,7 +47,7 @@ struct producerData {
 };
 */
 
-typdef struct{
+typedef struct{
 	int task;
 	Queue q;
 }threadData;
@@ -56,7 +56,7 @@ typdef struct{
 char* pop(Queue *q){
 
 	assert(sem_wait(&q->full) == 0);
-	assert(pthread_mutex_lock(&q->lock) == 0;
+	assert(pthread_mutex_lock(&q->lock) == 0);
 
 	char *line = q->buffer[q->use];
 	//strncpy(line, queue->buffer[queue->use], 1024);
@@ -69,13 +69,13 @@ char* pop(Queue *q){
 
 	
 	
-	assert(pthread_mutex_unlock(&q->lock) == 0;
+	assert(pthread_mutex_unlock(&q->lock) == 0);
 	assert(sem_post(&q->empty) == 0);
 	return line;
 }
 
 void push(Queue *q, char *line){
-	assert(sem_wait(&q->empty) == 0;
+	assert(sem_wait(&q->empty) == 0);
 	assert(pthread_mutex_lock(&q->lock) == 0);
 	
 	//strncpy(queue->buffer[queue->fill], inLine, 1024);
@@ -89,7 +89,7 @@ void push(Queue *q, char *line){
 
 //Prints out the number of words in a line, might need to change this later to not include white spaces, haven't decided yet
 //Honestly, this probably will definitely need to be changed. probably maybe idk
-
+/*
 int wordCount(char* line){
 	int numOfWords = 0;
 	int i = 0;
@@ -121,17 +121,18 @@ void producerFn(void* args) {
 	}
 	printf("Ending Producer Fn");
 }
+*/
 
 //this is the thread function, which basically is just the producerFn and wordCount functions above this updated and combined.
 void *wordCount(void *attr){
 	printf("Starting Thread Function");
 	threadData *info = (threadData *) attr;
 	int taskNum = info->task;
-	int size = info->q->q_len;
+	int size = info->q.q_len;
 
-	while(counter < size - 1){
+	while(i < size - 1){
 		i++;
-		char *text = get(info->q);
+		char *text = pop(info->q);
 		printf("Line: %s\n", text);
 	
 		int wordsInLine = 0;	
@@ -142,7 +143,7 @@ void *wordCount(void *attr){
 				wordsInLine++;
 			}
 		}
-		printf("Task num %d, %d words", task, wordsInLine);
+		printf("Task num %d, %d words", taskNum, wordsInLine);
 		totalWordCount = totalWordCount + wordsInLine;
 	}
 	
@@ -263,7 +264,7 @@ int main(int argc, char *argv[]){
 	
 
 	for (int i = 0; i < tasks; i++){
-		assert(pthread_create(&producerThread[i[, NULL, &wordCount. (void *) &listOfThreads[i]) == 0);
+		assert(pthread_create(&producerThread[i], NULL, &wordCount, (void *) &listOfThreads[i]) == 0);
 
 	}
 
