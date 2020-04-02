@@ -76,6 +76,7 @@ char* pop(Queue *q){
 
 void push(Queue *q, char *line){
 	assert(sem_wait(&q->empty) == 0);
+//THE ASSERTION BELOW IS FAILING
 	assert(pthread_mutex_lock(&q->lock) == 0);
 	
 	//strncpy(queue->buffer[queue->fill], inLine, 1024);
