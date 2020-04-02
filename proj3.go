@@ -3,11 +3,15 @@ package main
 
 
 import ("fmt"
-	"log"
-	"bufio"
-	"strings"
 	"os"
 )
 
 
 
+func main(){
+	args := os.Args[1:]
+
+	fmt.Println(args);
+
+
+}
