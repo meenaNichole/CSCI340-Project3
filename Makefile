@@ -5,4 +5,3 @@ clean:
 
 proj3: proj3.c
 	gcc -pthread -o proj3 proj3.c
-	./proj3 5
