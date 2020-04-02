@@ -28,11 +28,11 @@ typedef struct {
 	int fill;
 	int use;
 	int q_len;
-	char** buffer;
+	char **buffer;
 	sem_t empty;
 	sem_t full;
 	pthread_mutex_t lock;
-}Queue;
+} Queue;
 
 /*
 //this was redefined below to make life easier
@@ -49,7 +49,7 @@ struct producerData {
 
 typedef struct{
 	int task;
-	Queue q;
+	Queue* q;
 }threadData;
 
 //Based off of producer-consumer notes
@@ -128,7 +128,7 @@ void *wordCount(void *attr){
 	printf("Starting Thread Function");
 	threadData *info = (threadData *) attr;
 	int taskNum = info->task;
-	int size = info->q.q_len;
+	int size = info->q->q_len;
 
 	while(i < size - 1){
 		i++;
